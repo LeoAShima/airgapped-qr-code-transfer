@@ -35,6 +35,13 @@
         >
           Stop Transfer
         </button>
+        <button
+          v-if="is_transferring"
+          v-on:click="go_back"
+          class="mb-6 p-1 border-2 border-gray-500"
+        >
+          Back 10
+        </button>
         <div id="qrcode" class=""></div>
       </div>
     </div>
@@ -49,6 +56,7 @@
           const user_message = ref("Choose file to get started");
           const is_transferring = ref(false);
           const chunk_size = 250;
+          const current_chunk = ref(0);
           let qrcode_object = "";
 
           const encode_data = (index, input_bytes) => {
@@ -59,6 +67,10 @@
               String.fromCharCode.apply(null, utf8_bytes)
             );
             return index + "," + encoded_data;
+          };
+
+          const go_back = () => {
+            current_chunk.value = Math.max(0, current_chunk.value - 10);
           };
 
           const stop_transfer = () => {
@@ -78,8 +90,10 @@
             qrcode_object.makeCode(JSON.stringify(file_metadata));
             user_message.value = "Starting data transfer in few seconds ...";
             await new Promise((r) => setTimeout(r, 1000));
-            for (let i = 0; i < total_chunks; i++) {
+            current_chunk.value = 0;
+            while (current_chunk.value < total_chunks) {
               await new Promise((r) => setTimeout(r, 50));
+              let i = current_chunk.value;
               let start = i * chunk_size;
               let chunk = data_array.subarray(start, start + chunk_size);
               let encoded_data = encode_data(i, chunk);
@@ -92,6 +106,7 @@
                 qrcode_object.makeCode("Choose file to get started");
                 break;
               }
+              current_chunk.value++;
             }
             stop_transfer();
           };
@@ -115,6 +130,7 @@
             user_message,
             start_transfer,
             stop_transfer,
+            go_back,
             is_transferring,
           };
         },

@@ -18,6 +18,9 @@
           Progress: {{Object.keys(decoded_chunks).length}} /
           {{file_metadata.chunks || 0}}
         </div>
+        <div v-if="skipped_chunks.length > 0" class="text-sm mb-4 text-red-600">
+          Skipped chunks: {{skipped_chunks.join(', ')}}
+        </div>
         <button
           v-if="!is_receiving"
           v-on:click="start_receiver"
@@ -48,6 +51,14 @@
           const total_chunks = ref(-1);
           const file_metadata = reactive({});
           const is_receiving = ref(false);
+          const max_received = ref(-1);
+          const skipped_chunks = computed(() => {
+            const skipped = [];
+            for (let j = 0; j < max_received.value; j++) {
+              if (!(j in decoded_chunks.value)) skipped.push(j);
+            }
+            return skipped;
+          });
           let canvas, context, videoElement;
 
           const decode_data = (input_string) => {
@@ -81,6 +92,7 @@
           const stop_receiver = () => {
             is_receiving.value = false;
             decoded_chunks.value = {};
+            max_received.value = -1;
             Object.assign(file_metadata, {});
             user_message.value = "Click receive button to start receiving";
           };
@@ -108,10 +120,14 @@
                 if (decoded_data.includes("chunks")) {
                   Object.assign(file_metadata, JSON.parse(decoded_data));
                   decoded_chunks.value = {};
+                  max_received.value = -1;
                   user_message.value = `Transferring file: ${file_metadata.name}`;
                 } else if (decoded_data.split(",").length == 2) {
                   let raw_data = decode_data(decoded_data);
                   decoded_chunks.value[raw_data["index"]] = raw_data["data"];
+                  if (raw_data["index"] > max_received.value) {
+                    max_received.value = raw_data["index"];
+                  }
                 }
                 window.decoded_chunks = decoded_chunks.value;
               } catch (error) {
@@ -157,6 +173,7 @@
             file_metadata,
             decoded_chunks,
             stop_receiver,
+            skipped_chunks,
           };
         },
       }).mount("#app");
